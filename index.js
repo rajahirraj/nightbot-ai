@@ -1,12 +1,7 @@
 import express from "express";
-import OpenAI from "openai";
 
-const app = express(); // ✅ THIS WAS MISSING
+const app = express();
 const port = process.env.PORT || 3000;
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 app.get("/", (req, res) => {
   res.send("Nightbot AI is running");
@@ -15,17 +10,24 @@ app.get("/", (req, res) => {
 app.get("/ai", async (req, res) => {
   try {
     const msg = req.query.msg;
-    if (!msg) return res.send("No message provided");
+    if (!msg) return res.send("No message");
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: msg }],
-      max_tokens: 60,
-    });
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/google/flan-t5-small",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.HF_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ inputs: msg }),
+      }
+    );
 
-    res.send(completion.choices[0].message.content);
-  } catch (error) {
-    console.error("OPENAI ERROR:", error);
+    const data = await response.json();
+    res.send(data[0]?.generated_text || "No reply");
+  } catch (err) {
+    console.error(err);
     res.send("AI error");
   }
 });
